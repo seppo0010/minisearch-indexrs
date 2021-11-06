@@ -17,6 +17,11 @@ struct Index {
     next_id: usize,
     map: PatriciaMap<Vec<(usize, usize)>>,
     // TODO: custom tokenizer
+    // TODO: custom term processing
+}
+
+fn process_term(term: &str) -> String {
+    term.to_lowercase()
 }
 
 fn tokenize(text: &str) -> Vec<String> {
@@ -38,7 +43,6 @@ impl Index {
         }
     }
 
-
     fn add_document(&mut self, document: HashMap<String, String>) {
         let document_id = document.get("id").unwrap();
         let small_id = self.next_id;
@@ -52,7 +56,7 @@ impl Index {
             (tokens, field_id)
         }) {
             for token in tokens {
-                self.add_token(small_id, &token, *field_id)
+                self.add_token(small_id, &process_term(&token), *field_id)
             }
         }
     }
@@ -102,14 +106,10 @@ fn read_config_from_file<P: AsRef<Path>>(path: P) -> IndexConfig {
     serde_json::from_reader(reader).unwrap()
 }
 
-fn add_documents_from_path(index: &mut Index, path: &str) {
+fn get_path_documents(path: &str) -> Vec<HashMap<String, JSONValue>> {
     let file = File::open(path).unwrap();
     let reader = BufReader::new(file);
-    let data: Vec<HashMap<String, JSONValue>> = serde_json::from_reader(reader).unwrap();
-    let fields = index.field_ids.keys().cloned().collect();
-    for doc in data {
-        index.add_document(json_document_to_text_document(doc, &fields))
-    }
+    serde_json::from_reader(reader).unwrap()
 }
 
 fn main() {
@@ -118,6 +118,11 @@ fn main() {
     let config = read_config_from_file(config_path);
     let data_path = &args[2];
     let mut index = Index::new(&config);
-    add_documents_from_path(&mut index, data_path);
+    let fields = index.field_ids.keys().cloned().collect();
+    let json_documents = get_path_documents(data_path);
+    let documents = json_documents.into_iter().map(|doc| json_document_to_text_document(doc, &fields));
+    for doc in documents {
+        index.add_document(doc)
+    }
     index.into_minisearch_json();
 }
