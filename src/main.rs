@@ -6,26 +6,16 @@ use std::path::Path;
 
 use lazy_static::lazy_static;
 use log::warn;
-use patricia_tree::PatriciaMap;
+use patricia_tree::{PatriciaMap, node::Node};
 use regex::Regex;
 use serde::Deserialize;
 use serde_json::{Value as JSONValue};
-
-type ShortId = usize;
-type FieldId = usize;
-
-enum TreeNode {
-    Leaf(HashMap<ShortId, HashMap<FieldId, usize>>),
-    Children(HashMap<String, TreeNode>),
-}
 
 struct Index {
     field_ids: HashMap<String, usize>,
     document_ids: HashMap<usize, String>,
     next_id: usize,
-    document_count: usize,
-    index: TreeNode,
-    map: PatriciaMap<String>,
+    map: PatriciaMap<Vec<(usize, usize)>>,
     // TODO: custom tokenizer
 }
 
@@ -44,8 +34,6 @@ impl Index {
             field_ids,
             document_ids: HashMap::new(),
             next_id: 0,
-            document_count: 0,
-            index: TreeNode::Leaf(HashMap::new()),
             map: PatriciaMap::new(),
         }
     }
@@ -53,6 +41,9 @@ impl Index {
 
     fn add_document(&mut self, document: HashMap<String, String>) {
         let document_id = document.get("id").unwrap();
+        let small_id = self.next_id;
+        self.document_ids.insert(small_id, document_id.to_owned());
+        self.next_id += 1;
         let field_ids = self.field_ids.clone();
         for (tokens, field_id) in field_ids.iter().map(|(field_name, field_id)| {
             let default = &"".to_owned();
@@ -61,13 +52,25 @@ impl Index {
             (tokens, field_id)
         }) {
             for token in tokens {
-                self.add_token(document_id, &token, *field_id)
+                self.add_token(small_id, &token, *field_id)
             }
         }
     }
 
-    fn add_token(&mut self, document_id: &str, token: &str, field_id: usize) {
-        self.map.insert(token, document_id.to_owned());
+    fn add_token(&mut self, document_id: usize, token: &str, field_id: usize) {
+        // conditional double insert sounds more efficient than get-insert
+        let old = self.map.insert(token, vec![(document_id.to_owned(), field_id)]);
+        if let Some(mut old) = old {
+            old.push((document_id.to_owned(), field_id));
+            self.map.insert(token, old);
+        }
+    }
+
+    fn into_minisearch_json(self) {
+        let node = Node::from(self.map);
+        for (level, node) in node.iter() {
+            println!("{:?} {:?} {:?}", level, std::str::from_utf8(node.label()).unwrap(), node.value());
+        }
     }
 }
 
@@ -114,8 +117,7 @@ fn main() {
     let config_path = &args[1];
     let config = read_config_from_file(config_path);
     let data_path = &args[2];
-    for i in 0..100 {
-        let mut index = Index::new(&config);
-        add_documents_from_path(&mut index, data_path);
-    }
+    let mut index = Index::new(&config);
+    add_documents_from_path(&mut index, data_path);
+    index.into_minisearch_json();
 }
