@@ -1,0 +1,4 @@
+{
+  "fields": ["artist", "title"],
+  "storeFields": ["year"]
+}
