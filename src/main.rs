@@ -6,6 +6,7 @@ use std::path::Path;
 
 use lazy_static::lazy_static;
 use log::warn;
+use patricia_tree::PatriciaMap;
 use regex::Regex;
 use serde::Deserialize;
 use serde_json::{Value as JSONValue};
@@ -24,6 +25,7 @@ struct Index {
     next_id: usize,
     document_count: usize,
     index: TreeNode,
+    map: PatriciaMap<String>,
     // TODO: custom tokenizer
 }
 
@@ -44,6 +46,7 @@ impl Index {
             next_id: 0,
             document_count: 0,
             index: TreeNode::Leaf(HashMap::new()),
+            map: PatriciaMap::new(),
         }
     }
 
@@ -64,7 +67,7 @@ impl Index {
     }
 
     fn add_token(&mut self, document_id: &str, token: &str, field_id: usize) {
-        unimplemented!();
+        self.map.insert(token, document_id.to_owned());
     }
 }
 
@@ -110,8 +113,9 @@ fn main() {
     let args = env::args().collect::<Vec<_>>();
     let config_path = &args[1];
     let config = read_config_from_file(config_path);
-    let mut index = Index::new(&config);
-
     let data_path = &args[2];
-    add_documents_from_path(&mut index, data_path);
+    for i in 0..100 {
+        let mut index = Index::new(&config);
+        add_documents_from_path(&mut index, data_path);
+    }
 }
