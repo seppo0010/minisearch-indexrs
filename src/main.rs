@@ -7,7 +7,7 @@ use std::path::Path;
 use env_logger;
 use lazy_static::lazy_static;
 use log::{debug, warn};
-use patricia_tree::{PatriciaMap};
+use patricia_tree::PatriciaMap;
 use regex::Regex;
 use serde::Deserialize;
 use serde_json::{Map as JSONMap, Value as JSONValue};
@@ -124,7 +124,8 @@ impl Index {
         );
         h.insert(
             "averageFieldLength".to_string(),
-            serializer::average_field_length_json(self.field_num_tokens, self.next_id as f64).into(),
+            serializer::average_field_length_json(self.field_num_tokens, self.next_id as f64)
+                .into(),
         );
         h.insert(
             "fieldLength".to_string(),

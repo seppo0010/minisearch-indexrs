@@ -97,3 +97,31 @@ pub fn map_json(map: PatriciaMap<Vec<(usize, usize)>>) -> JSONMap<String, JSONVa
     index.insert("_tree".to_string(), stack.pop().unwrap().1.into());
     index
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_test::{assert_tokens, Token};
+
+    #[test]
+    fn test_serialize_fields() {
+        let mut field_ids = HashMap::new();
+        field_ids.insert("title".to_owned(), 1usize);
+        field_ids.insert("author".to_owned(), 2usize);
+        field_ids.insert("year".to_owned(), 3usize);
+        let s = field_ids_json(field_ids);
+        assert_tokens(
+            &s,
+            &[
+                Token::Map { len: Some(3) },
+                Token::Str("author"),
+                Token::U64(2),
+                Token::Str("title"),
+                Token::U64(1),
+                Token::Str("year"),
+                Token::U64(3),
+                Token::MapEnd,
+            ],
+        );
+    }
+}
