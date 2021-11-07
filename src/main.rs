@@ -72,9 +72,9 @@ impl Index {
         }
     }
 
-    fn insert_document(&mut self, doc: &str) -> usize {
+    fn insert_document(&mut self, id: JSONValue) -> usize {
         let small_id = self.next_id;
-        self.document_ids.insert(small_id.to_string(), doc.into());
+        self.document_ids.insert(small_id.to_string(), id);
         self.next_id += 1;
         return small_id;
     }
@@ -252,14 +252,18 @@ fn main() {
 
     let docs = get_path_documents(data_path)
         .into_iter()
-        .flat_map(|doc| {
-            let doc = json_document_to_text_document(doc, &fields);
-            let id = doc.get("id").unwrap().clone();
-            let small_id = index.insert_document(&id);
-            get_document_tokens(&field_ids, &doc, small_id)
+        .map(|mut d| {
+            let small_id = index.insert_document(d.remove("id").unwrap());
+            (small_id, d)
         })
         .collect::<Vec<_>>();
 
-    index.add_document_tokens(docs.into_iter());
+    index.add_document_tokens(docs
+        .into_iter()
+        .flat_map(|(small_id, doc)| {
+            let doc = json_document_to_text_document(doc, &fields);
+            get_document_tokens(&field_ids, &doc, small_id)
+        })
+        );
     println!("{}", index.into_minisearch_json());
 }
