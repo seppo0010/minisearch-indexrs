@@ -4,8 +4,9 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
+use env_logger;
 use lazy_static::lazy_static;
-use log::warn;
+use log::{debug, warn};
 use patricia_tree::{node::Node, PatriciaMap};
 use regex::Regex;
 use serde::Deserialize;
@@ -261,12 +262,14 @@ fn json_document_to_text_document(
 }
 
 fn read_config_from_file<P: AsRef<Path>>(path: P) -> IndexConfig {
+    debug!("reading config from {}", path.as_ref().to_string_lossy());
     let file = File::open(path).unwrap();
     let reader = BufReader::new(file);
     serde_json::from_reader(reader).unwrap()
 }
 
-fn get_path_documents(path: &str) -> Vec<HashMap<String, JSONValue>> {
+fn get_path_documents<P: AsRef<Path>>(path: P) -> Vec<HashMap<String, JSONValue>> {
+    debug!("reading documents from {}", path.as_ref().to_string_lossy());
     let file = File::open(path).unwrap();
     let reader = BufReader::new(file);
     serde_json::from_reader(reader).unwrap()
