@@ -43,6 +43,18 @@ fn average_field_length_json(field_num_tokens: HashMap<usize, usize>, next_id: f
     average_field_length
 }
 
+fn field_length_json(field_length_src: HashMap<usize, HashMap<usize, usize>>) -> JSONMap<String, JSONValue> {
+    let mut field_length = JSONMap::new();
+    for (small_id, field_lengths) in field_length_src.into_iter() {
+        let mut json_field_lengths = JSONMap::new();
+        for (field_id, length) in field_lengths.into_iter() {
+            json_field_lengths.insert(field_id.to_string(), length.into());
+        }
+        field_length.insert(small_id.to_string(), json_field_lengths.into());
+    }
+    field_length
+}
+
 fn process_term(term: &str) -> String {
     term.to_lowercase()
 }
@@ -137,21 +149,11 @@ impl Index {
         h.insert("nextId".to_string(), self.next_id.into());
         h.insert("documentIds".to_string(), self.document_ids.into());
         h.insert("fieldIds".to_string(), field_ids_json(self.field_ids).into());
-
         h.insert(
             "averageFieldLength".to_string(),
             average_field_length_json(self.field_num_tokens, self.next_id as f64).into()
         );
-
-        let mut field_length = JSONMap::new();
-        for (small_id, field_lengths) in self.field_length.into_iter() {
-            let mut json_field_lengths = JSONMap::new();
-            for (field_id, length) in field_lengths.into_iter() {
-                json_field_lengths.insert(field_id.to_string(), length.into());
-            }
-            field_length.insert(small_id.to_string(), json_field_lengths.into());
-        }
-        h.insert("fieldLength".to_string(), field_length.into());
+        h.insert("fieldLength".to_string(), field_length_json(self.field_length).into());
 
         // TODO: storedFields
 
