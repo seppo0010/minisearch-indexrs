@@ -252,12 +252,12 @@ fn main() {
 
     let docs = get_path_documents(data_path)
         .into_iter()
-        .map(|doc| json_document_to_text_document(doc, &fields))
-        .map(|doc| {
+        .flat_map(|doc| {
+            let doc = json_document_to_text_document(doc, &fields);
             let id = doc.get("id").unwrap().clone();
-            (doc, index.insert_document(&id))
+            let small_id = index.insert_document(&id);
+            get_document_tokens(&field_ids, &doc, small_id)
         })
-        .flat_map(|(doc, id)| get_document_tokens(&field_ids, &doc, id))
         .collect::<Vec<_>>();
 
     index.add_document_tokens(docs.into_iter());
