@@ -32,6 +32,17 @@ fn field_ids_json(field_ids_src: HashMap<String, usize>) -> JSONMap<String, JSON
     return field_ids;
 }
 
+fn average_field_length_json(field_num_tokens: HashMap<usize, usize>, next_id: f64) -> JSONMap<String, JSONValue> {
+    let mut average_field_length = JSONMap::new();
+    for (field_id, num_tokens) in field_num_tokens.into_iter() {
+        average_field_length.insert(
+            field_id.to_string(),
+            (num_tokens as f64 / next_id).into(),
+        );
+    }
+    average_field_length
+}
+
 fn process_term(term: &str) -> String {
     term.to_lowercase()
 }
@@ -127,16 +138,9 @@ impl Index {
         h.insert("documentIds".to_string(), self.document_ids.into());
         h.insert("fieldIds".to_string(), field_ids_json(self.field_ids).into());
 
-        let mut average_field_length = JSONMap::new();
-        for (field_id, num_tokens) in self.field_num_tokens.into_iter() {
-            average_field_length.insert(
-                field_id.to_string(),
-                (num_tokens as f64 / self.next_id as f64).into(),
-            );
-        }
         h.insert(
             "averageFieldLength".to_string(),
-            average_field_length.into(),
+            average_field_length_json(self.field_num_tokens, self.next_id as f64).into()
         );
 
         let mut field_length = JSONMap::new();
