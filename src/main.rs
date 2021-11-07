@@ -67,9 +67,9 @@ impl Index {
     }
 
     fn insert_document(&mut self, doc: &str) -> usize {
-        self.next_id += 1;
         let small_id = self.next_id;
         self.document_ids.insert(small_id, doc.to_owned());
+        self.next_id += 1;
         return small_id;
     }
 
@@ -93,7 +93,28 @@ impl Index {
         }
     }
 
-    fn into_minisearch_json(self) {
+    fn into_minisearch_json(self) -> String {
+        let mut h = serde_json::Map::new();
+        h.insert("documentCount".to_string(), JSONValue::Number(self.next_id.into()));
+        h.insert("nextId".to_string(), JSONValue::Number(self.next_id.into()));
+
+        let mut document_ids = serde_json::Map::new();
+        for (k, v) in self.document_ids.iter() {
+            // FIXME: ids can be numeric
+            document_ids.insert(k.to_string(), v.clone().into());
+        }
+        h.insert("documentIds".to_string(), JSONValue::Object(document_ids));
+
+        let mut field_ids = serde_json::Map::new();
+        for (k, v) in self.field_ids.iter() {
+            field_ids.insert(k.to_string(), v.clone().into());
+        }
+        h.insert("fieldIds".to_string(), JSONValue::Object(field_ids));
+
+        // TODO: averageFieldLength
+        // TODO: fieldLength
+        // TODO: storedFields
+
         let node = Node::from(self.map);
         for (level, node) in node.iter() {
             println!(
@@ -103,6 +124,7 @@ impl Index {
                 node.value()
             );
         }
+        return serde_json::to_string(&JSONValue::Object(h)).unwrap();
     }
 }
 
@@ -169,5 +191,5 @@ fn main() {
         .collect::<Vec<_>>();
 
     index.add_document_tokens(docs.into_iter());
-    index.into_minisearch_json();
+    println!("{}", index.into_minisearch_json());
 }
