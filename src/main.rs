@@ -1,15 +1,15 @@
-use std::env;
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
 use lazy_static::lazy_static;
 use log::warn;
-use patricia_tree::{PatriciaMap, node::Node};
+use patricia_tree::{node::Node, PatriciaMap};
 use regex::Regex;
 use serde::Deserialize;
-use serde_json::{Value as JSONValue};
+use serde_json::Value as JSONValue;
 
 struct Index {
     field_ids: HashMap<String, usize>,
@@ -32,9 +32,32 @@ fn tokenize(text: &str) -> Vec<String> {
     RE.split(text).map(|x| x.to_owned()).collect()
 }
 
+fn get_document_tokens(
+    field_ids: &HashMap<String, usize>,
+    document: &HashMap<String, String>,
+    document_id: usize,
+) -> Vec<(String, usize, usize)> {
+    field_ids
+        .iter()
+        .flat_map(|(field_name, field_id)| {
+            let default = &"".to_owned();
+            let text = document.get(field_name).unwrap_or(default);
+            let tokens = tokenize(&text);
+            tokens
+                .into_iter()
+                .map(|x| (x, *field_id, document_id.to_owned()))
+        })
+        .collect()
+}
+
 impl Index {
     fn new(config: &IndexConfig) -> Self {
-        let field_ids = config.fields.iter().enumerate().map(|(i, v)| (v.to_owned(), i)).collect::<HashMap<String, usize>>();
+        let field_ids = config
+            .fields
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (v.to_owned(), i))
+            .collect::<HashMap<String, usize>>();
         Index {
             field_ids,
             document_ids: HashMap::new(),
@@ -43,27 +66,27 @@ impl Index {
         }
     }
 
-    fn add_document(&mut self, document: HashMap<String, String>) {
-        let document_id = document.get("id").unwrap();
-        let small_id = self.next_id;
-        self.document_ids.insert(small_id, document_id.to_owned());
+    fn insert_document(&mut self, doc: &str) -> usize {
         self.next_id += 1;
-        let field_ids = self.field_ids.clone();
-        for (tokens, field_id) in field_ids.iter().map(|(field_name, field_id)| {
-            let default = &"".to_owned();
-            let text = document.get(field_name).unwrap_or(default);
-            let tokens = tokenize(&text);
-            (tokens, field_id)
-        }) {
-            for token in tokens {
-                self.add_token(small_id, &process_term(&token), *field_id)
-            }
+        let small_id = self.next_id;
+        self.document_ids.insert(small_id, doc.to_owned());
+        return small_id;
+    }
+
+    fn add_document_tokens<I>(&mut self, document_tokens: I)
+    where
+        I: Iterator<Item = (String, usize, usize)>,
+    {
+        for (token, field_id, small_id) in document_tokens {
+            self.add_token(small_id, &process_term(&token), field_id);
         }
     }
 
     fn add_token(&mut self, document_id: usize, token: &str, field_id: usize) {
         // conditional double insert sounds more efficient than get-insert
-        let old = self.map.insert(token, vec![(document_id.to_owned(), field_id)]);
+        let old = self
+            .map
+            .insert(token, vec![(document_id.to_owned(), field_id)]);
         if let Some(mut old) = old {
             old.push((document_id.to_owned(), field_id));
             self.map.insert(token, old);
@@ -73,7 +96,12 @@ impl Index {
     fn into_minisearch_json(self) {
         let node = Node::from(self.map);
         for (level, node) in node.iter() {
-            println!("{:?} {:?} {:?}", level, std::str::from_utf8(node.label()).unwrap(), node.value());
+            println!(
+                "{:?} {:?} {:?}",
+                level,
+                std::str::from_utf8(node.label()).unwrap(),
+                node.value()
+            );
         }
     }
 }
@@ -85,19 +113,27 @@ struct IndexConfig {
     store_fields: Vec<String>,
 }
 
-fn json_document_to_text_document(json_document: HashMap<String, JSONValue>, fields: &HashSet<String>) -> HashMap<String, String> {
-    json_document.into_iter().filter_map(|(k, v)| {
-        if k != "id" && !fields.contains(&k) { return None }
-        match v {
-            JSONValue::Null => Some((k, "".to_owned())),
-            JSONValue::Number(ref n) => Some((k, n.to_string())),
-            JSONValue::String(ref s) => Some((k, s.clone())),
-            _ => {
-                warn!("unsupported type for field {}", k);
-                None
-            },
-        }
-    }).collect()
+fn json_document_to_text_document(
+    json_document: HashMap<String, JSONValue>,
+    fields: &HashSet<String>,
+) -> HashMap<String, String> {
+    json_document
+        .into_iter()
+        .filter_map(|(k, v)| {
+            if k != "id" && !fields.contains(&k) {
+                return None;
+            }
+            match v {
+                JSONValue::Null => Some((k, "".to_owned())),
+                JSONValue::Number(ref n) => Some((k, n.to_string())),
+                JSONValue::String(ref s) => Some((k, s.clone())),
+                _ => {
+                    warn!("unsupported type for field {}", k);
+                    None
+                }
+            }
+        })
+        .collect()
 }
 
 fn read_config_from_file<P: AsRef<Path>>(path: P) -> IndexConfig {
@@ -117,12 +153,21 @@ fn main() {
     let config_path = &args[1];
     let config = read_config_from_file(config_path);
     let data_path = &args[2];
+
     let mut index = Index::new(&config);
     let fields = index.field_ids.keys().cloned().collect();
-    let json_documents = get_path_documents(data_path);
-    let documents = json_documents.into_iter().map(|doc| json_document_to_text_document(doc, &fields));
-    for doc in documents {
-        index.add_document(doc)
-    }
+    let field_ids = index.field_ids.clone();
+
+    let docs = get_path_documents(data_path)
+        .into_iter()
+        .map(|doc| json_document_to_text_document(doc, &fields))
+        .map(|doc| {
+            let id = doc.get("id").unwrap().clone();
+            (doc, index.insert_document(&id))
+        })
+        .flat_map(|(doc, id)| get_document_tokens(&field_ids, &doc, id))
+        .collect::<Vec<_>>();
+
+    index.add_document_tokens(docs.into_iter());
     index.into_minisearch_json();
 }
