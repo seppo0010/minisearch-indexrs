@@ -156,7 +156,6 @@ impl Index {
             if level == 0 {
                 continue;
             }
-            // println!("{} {}", level, stack.len());
             while level + 1 <= stack.len() {
                 let level = stack.len() - 2;
                 let (key, val) = stack.pop().unwrap();
