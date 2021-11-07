@@ -91,7 +91,7 @@ impl Index {
             let mut document_fields_length = self.field_length.remove(&small_id).unwrap_or(default_document_fields_length);
             let num_document_field_length = document_fields_length.get(&field_id).unwrap_or(&0) + 1;
             document_fields_length.insert(field_id, num_document_field_length);
-            self.field_length.insert(small_id, document_fields_length.clone());
+            self.field_length.insert(small_id, document_fields_length);
 
             self.field_num_tokens.insert(field_id, num_tokens);
             self.add_token(small_id, &process_term(&token), field_id);
@@ -118,7 +118,7 @@ impl Index {
 
         let mut field_ids = serde_json::Map::new();
         for (k, v) in self.field_ids.into_iter() {
-            field_ids.insert(k.to_string(), v.clone().into());
+            field_ids.insert(k.to_string(), v.into());
         }
         h.insert("fieldIds".to_string(), field_ids.into());
 
