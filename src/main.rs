@@ -9,11 +9,11 @@ use log::warn;
 use patricia_tree::{node::Node, PatriciaMap};
 use regex::Regex;
 use serde::Deserialize;
-use serde_json::{json, Value as JSONValue};
+use serde_json::{json, Value as JSONValue, Map as JSONMap};
 
 struct Index {
     field_ids: HashMap<String, usize>,
-    document_ids: serde_json::Map<String, JSONValue>,
+    document_ids: JSONMap<String, JSONValue>,
     next_id: usize,
     /* {fieldId: count} */
     field_num_tokens: HashMap<usize, usize>,
@@ -64,7 +64,7 @@ impl Index {
             .collect::<HashMap<String, usize>>();
         Index {
             field_ids,
-            document_ids: serde_json::Map::new(),
+            document_ids: JSONMap::new(),
             field_num_tokens: HashMap::new(),
             field_length: HashMap::new(),
             next_id: 0,
@@ -110,27 +110,27 @@ impl Index {
     }
 
     fn into_minisearch_json(self) -> String {
-        let mut h = serde_json::Map::new();
+        let mut h = JSONMap::new();
         h.insert("documentCount".to_string(), self.next_id.into());
         h.insert("nextId".to_string(), self.next_id.into());
 
         h.insert("documentIds".to_string(), self.document_ids.into());
 
-        let mut field_ids = serde_json::Map::new();
+        let mut field_ids = JSONMap::new();
         for (k, v) in self.field_ids.into_iter() {
             field_ids.insert(k.to_string(), v.into());
         }
         h.insert("fieldIds".to_string(), field_ids.into());
 
-        let mut average_field_length = serde_json::Map::new();
+        let mut average_field_length = JSONMap::new();
         for (field_id, num_tokens) in self.field_num_tokens.into_iter() {
             average_field_length.insert(field_id.to_string(), (num_tokens as f64 / self.next_id as f64).into());
         }
         h.insert("averageFieldLength".to_string(), average_field_length.into());
 
-        let mut field_length = serde_json::Map::new();
+        let mut field_length = JSONMap::new();
         for (small_id, field_lengths) in self.field_length.into_iter() {
-            let mut json_field_lengths = serde_json::Map::new();
+            let mut json_field_lengths = JSONMap::new();
             for (field_id, length) in field_lengths.into_iter() {
                 json_field_lengths.insert(field_id.to_string(), length.into());
             }
@@ -142,9 +142,9 @@ impl Index {
 
         let node = Node::from(self.map);
 
-        let mut index = serde_json::Map::new();
+        let mut index = JSONMap::new();
         index.insert("_prefix".to_string(), "".into());
-        let mut stack = vec![("".to_owned(), serde_json::Map::new())];
+        let mut stack = vec![("".to_owned(), JSONMap::new())];
         for (level, node) in node.into_iter() {
             let label = std::str::from_utf8(node.label()).unwrap().to_owned();
             if level == 0 {
@@ -155,7 +155,7 @@ impl Index {
                 let (key, val) = stack.pop().unwrap();
                 stack[level].1.insert(key, val.into());
             }
-            let mut val = serde_json::Map::new();
+            let mut val = JSONMap::new();
             if level + 1 > stack.len() {
                 if let Some(nodes) = node.value() {
                     let mut tree = HashMap::new();
@@ -171,7 +171,7 @@ impl Index {
                     }
                     for (small_id, counts) in tree.into_iter() {
                         let df = counts.len();
-                        let mut ds = serde_json::Map::new();
+                        let mut ds = JSONMap::new();
                         for (field_id, count) in counts.into_iter() {
                             ds.insert(field_id.to_string(), count.into());
                         }
