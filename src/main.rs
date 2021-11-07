@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, hash_map::Entry};
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
@@ -9,7 +9,7 @@ use log::warn;
 use patricia_tree::{node::Node, PatriciaMap};
 use regex::Regex;
 use serde::Deserialize;
-use serde_json::{json, Value as JSONValue, Map as JSONMap};
+use serde_json::{json, Map as JSONMap, Value as JSONValue};
 
 struct Index {
     field_ids: HashMap<String, usize>,
@@ -88,7 +88,10 @@ impl Index {
             self.field_num_tokens.insert(field_id, num_tokens);
 
             let default_document_fields_length = HashMap::new();
-            let mut document_fields_length = self.field_length.remove(&small_id).unwrap_or(default_document_fields_length);
+            let mut document_fields_length = self
+                .field_length
+                .remove(&small_id)
+                .unwrap_or(default_document_fields_length);
             let num_document_field_length = document_fields_length.get(&field_id).unwrap_or(&0) + 1;
             document_fields_length.insert(field_id, num_document_field_length);
             self.field_length.insert(small_id, document_fields_length);
@@ -124,9 +127,15 @@ impl Index {
 
         let mut average_field_length = JSONMap::new();
         for (field_id, num_tokens) in self.field_num_tokens.into_iter() {
-            average_field_length.insert(field_id.to_string(), (num_tokens as f64 / self.next_id as f64).into());
+            average_field_length.insert(
+                field_id.to_string(),
+                (num_tokens as f64 / self.next_id as f64).into(),
+            );
         }
-        h.insert("averageFieldLength".to_string(), average_field_length.into());
+        h.insert(
+            "averageFieldLength".to_string(),
+            average_field_length.into(),
+        );
 
         let mut field_length = JSONMap::new();
         for (small_id, field_lengths) in self.field_length.into_iter() {
@@ -166,7 +175,9 @@ impl Index {
                         };
                         match subtree.entry(*small_id) {
                             Entry::Occupied(o) => *o.into_mut() += 1,
-                            Entry::Vacant(v) => { v.insert(1); },
+                            Entry::Vacant(v) => {
+                                v.insert(1);
+                            }
                         };
                     }
                     for (small_id, counts) in tree.into_iter() {
@@ -175,12 +186,16 @@ impl Index {
                         for (field_id, count) in counts.into_iter() {
                             ds.insert(field_id.to_string(), count.into());
                         }
-                        val.insert("".to_string(), json!({
-                            small_id.to_string(): {
-                                "df": df,
-                                "ds": ds,
-                            }
-                        }).into());
+                        val.insert(
+                            "".to_string(),
+                            json!({
+                                small_id.to_string(): {
+                                    "df": df,
+                                    "ds": ds,
+                                }
+                            })
+                            .into(),
+                        );
                     }
                 }
                 stack.push((label, val));
@@ -258,12 +273,9 @@ fn main() {
         })
         .collect::<Vec<_>>();
 
-    index.add_document_tokens(docs
-        .into_iter()
-        .flat_map(|(small_id, doc)| {
-            let doc = json_document_to_text_document(doc, &fields);
-            get_document_tokens(&field_ids, &doc, small_id)
-        })
-        );
+    index.add_document_tokens(docs.into_iter().flat_map(|(small_id, doc)| {
+        let doc = json_document_to_text_document(doc, &fields);
+        get_document_tokens(&field_ids, &doc, small_id)
+    }));
     println!("{}", index.into_minisearch_json());
 }
