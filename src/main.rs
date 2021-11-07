@@ -15,6 +15,7 @@ struct Index {
     field_ids: HashMap<String, usize>,
     document_ids: HashMap<usize, String>,
     next_id: usize,
+    field_num_tokens: HashMap<usize, usize>,
     map: PatriciaMap<Vec<(usize, usize)>>,
     // TODO: custom tokenizer
     // TODO: custom term processing
@@ -61,6 +62,7 @@ impl Index {
         Index {
             field_ids,
             document_ids: HashMap::new(),
+            field_num_tokens: HashMap::new(),
             next_id: 0,
             map: PatriciaMap::new(),
         }
@@ -78,6 +80,8 @@ impl Index {
         I: Iterator<Item = (String, usize, usize)>,
     {
         for (token, field_id, small_id) in document_tokens {
+            let num_tokens = self.field_num_tokens.get(&field_id).unwrap_or(&0) + 1;
+            self.field_num_tokens.insert(field_id, num_tokens);
             self.add_token(small_id, &process_term(&token), field_id);
         }
     }
@@ -95,23 +99,28 @@ impl Index {
 
     fn into_minisearch_json(self) -> String {
         let mut h = serde_json::Map::new();
-        h.insert("documentCount".to_string(), JSONValue::Number(self.next_id.into()));
-        h.insert("nextId".to_string(), JSONValue::Number(self.next_id.into()));
+        h.insert("documentCount".to_string(), self.next_id.into());
+        h.insert("nextId".to_string(), self.next_id.into());
 
         let mut document_ids = serde_json::Map::new();
-        for (k, v) in self.document_ids.iter() {
+        for (k, v) in self.document_ids.into_iter() {
             // FIXME: ids can be numeric
             document_ids.insert(k.to_string(), v.clone().into());
         }
-        h.insert("documentIds".to_string(), JSONValue::Object(document_ids));
+        h.insert("documentIds".to_string(), document_ids.into());
 
         let mut field_ids = serde_json::Map::new();
-        for (k, v) in self.field_ids.iter() {
+        for (k, v) in self.field_ids.into_iter() {
             field_ids.insert(k.to_string(), v.clone().into());
         }
-        h.insert("fieldIds".to_string(), JSONValue::Object(field_ids));
+        h.insert("fieldIds".to_string(), field_ids.into());
 
-        // TODO: averageFieldLength
+        let mut average_field_length = serde_json::Map::new();
+        for (field_id, num_tokens) in self.field_num_tokens.into_iter() {
+            average_field_length.insert(field_id.to_string(), (num_tokens / self.next_id).into());
+        }
+        h.insert("averageFieldLength".to_string(), average_field_length.into());
+
         // TODO: fieldLength
         // TODO: storedFields
 
