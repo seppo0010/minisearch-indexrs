@@ -24,6 +24,14 @@ struct Index {
     // TODO: custom term processing
 }
 
+fn field_ids_json(field_ids_src: HashMap<String, usize>) -> JSONMap<String, JSONValue> {
+    let mut field_ids = JSONMap::new();
+    for (k, v) in field_ids_src.into_iter() {
+        field_ids.insert(k.to_string(), v.into());
+    }
+    return field_ids;
+}
+
 fn process_term(term: &str) -> String {
     term.to_lowercase()
 }
@@ -116,14 +124,8 @@ impl Index {
         let mut h = JSONMap::new();
         h.insert("documentCount".to_string(), self.next_id.into());
         h.insert("nextId".to_string(), self.next_id.into());
-
         h.insert("documentIds".to_string(), self.document_ids.into());
-
-        let mut field_ids = JSONMap::new();
-        for (k, v) in self.field_ids.into_iter() {
-            field_ids.insert(k.to_string(), v.into());
-        }
-        h.insert("fieldIds".to_string(), field_ids.into());
+        h.insert("fieldIds".to_string(), field_ids_json(self.field_ids).into());
 
         let mut average_field_length = JSONMap::new();
         for (field_id, num_tokens) in self.field_num_tokens.into_iter() {
