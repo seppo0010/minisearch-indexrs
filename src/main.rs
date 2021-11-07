@@ -275,17 +275,12 @@ fn get_path_documents<P: AsRef<Path>>(path: P) -> Vec<HashMap<String, JSONValue>
     serde_json::from_reader(reader).unwrap()
 }
 
-fn main() {
-    let args = env::args().collect::<Vec<_>>();
-    let config_path = &args[1];
-    let config = read_config_from_file(config_path);
-    let data_path = &args[2];
-
+fn create_index(docs: Vec<HashMap<String, JSONValue>>, config: &IndexConfig) -> Index {
     let mut index = Index::new(&config);
     let fields = index.field_ids.keys().cloned().collect();
     let field_ids = index.field_ids.clone();
 
-    let docs = get_path_documents(data_path)
+    let docs = docs
         .into_iter()
         .map(|mut d| {
             let small_id = index.insert_document(d.remove("id").unwrap());
@@ -297,5 +292,23 @@ fn main() {
         let doc = json_document_to_text_document(doc, &fields);
         get_document_tokens(&field_ids, &doc, small_id)
     }));
-    println!("{}", index.into_minisearch_json());
+    index
+}
+
+fn main() {
+    env_logger::init();
+    let args = env::args().collect::<Vec<_>>();
+    let config_path = &args[1];
+    let config = read_config_from_file(config_path);
+    let data_path = &args[2];
+    let docs = get_path_documents(data_path);
+
+    if args.len() > 3 {
+        let num = args[3].parse::<usize>().unwrap();
+        for _ in 1..num {
+            create_index(docs.clone(), &config).into_minisearch_json();
+        }
+    } else {
+        println!("{}", create_index(docs, &config).into_minisearch_json());
+    }
 }
