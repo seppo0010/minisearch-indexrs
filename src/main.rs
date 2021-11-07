@@ -13,7 +13,7 @@ use serde_json::{json, Value as JSONValue};
 
 struct Index {
     field_ids: HashMap<String, usize>,
-    document_ids: HashMap<usize, String>,
+    document_ids: serde_json::Map<String, JSONValue>,
     next_id: usize,
     /* {fieldId: count} */
     field_num_tokens: HashMap<usize, usize>,
@@ -64,7 +64,7 @@ impl Index {
             .collect::<HashMap<String, usize>>();
         Index {
             field_ids,
-            document_ids: HashMap::new(),
+            document_ids: serde_json::Map::new(),
             field_num_tokens: HashMap::new(),
             field_length: HashMap::new(),
             next_id: 0,
@@ -74,7 +74,7 @@ impl Index {
 
     fn insert_document(&mut self, doc: &str) -> usize {
         let small_id = self.next_id;
-        self.document_ids.insert(small_id, doc.to_owned());
+        self.document_ids.insert(small_id.to_string(), doc.into());
         self.next_id += 1;
         return small_id;
     }
@@ -114,12 +114,7 @@ impl Index {
         h.insert("documentCount".to_string(), self.next_id.into());
         h.insert("nextId".to_string(), self.next_id.into());
 
-        let mut document_ids = serde_json::Map::new();
-        for (k, v) in self.document_ids.into_iter() {
-            // FIXME: ids can be numeric
-            document_ids.insert(k.to_string(), v.clone().into());
-        }
-        h.insert("documentIds".to_string(), document_ids.into());
+        h.insert("documentIds".to_string(), self.document_ids.into());
 
         let mut field_ids = serde_json::Map::new();
         for (k, v) in self.field_ids.into_iter() {
@@ -144,7 +139,6 @@ impl Index {
         h.insert("fieldLength".to_string(), field_length.into());
 
         // TODO: storedFields
-
 
         let node = Node::from(self.map);
 
