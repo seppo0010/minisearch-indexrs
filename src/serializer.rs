@@ -124,4 +124,24 @@ mod tests {
             ],
         );
     }
+
+    #[test]
+    fn test_average_field_length_json() {
+        let mut field_num_tokens = HashMap::new();
+        let next_id = 100f64;
+        field_num_tokens.insert(100, 18);
+        field_num_tokens.insert(101, 123);
+        let json = average_field_length_json(field_num_tokens, next_id);
+        assert_tokens(
+            &json,
+            &[
+                Token::Map { len: Some(2) },
+                Token::Str("100"),
+                Token::F64(0.18),
+                Token::Str("101"),
+                Token::F64(1.23),
+                Token::MapEnd,
+            ],
+        );
+    }
 }
