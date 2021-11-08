@@ -25,10 +25,10 @@ pub struct Index {
 }
 
 impl Index {
-    pub fn new(config: &IndexConfig) -> Self {
+    pub fn new(config: IndexConfig) -> Self {
         let field_ids = config
             .fields
-            .iter()
+            .into_iter()
             .enumerate()
             .map(|(i, v)| (v.to_owned(), i))
             .collect::<HashMap<String, usize>>();
@@ -113,7 +113,7 @@ impl Index {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct IndexConfig {
     fields: Vec<String>,
     #[serde(alias = "storeFields")]
@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_insert_document() {
-        let mut index = Index::new(&IndexConfig {
+        let mut index = Index::new(IndexConfig {
             fields: vec!["author".to_string(), "title".to_string()],
             store_fields: vec!["author".to_string(), "title".to_string()],
         });
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_add_document_tokens() {
-        let mut index = Index::new(&IndexConfig {
+        let mut index = Index::new(IndexConfig {
             fields: vec!["author".to_string(), "title".to_string()],
             store_fields: vec!["author".to_string(), "title".to_string()],
         });

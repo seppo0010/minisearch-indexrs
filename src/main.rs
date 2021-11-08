@@ -74,9 +74,9 @@ fn get_path_documents<P: AsRef<Path>>(
 
 fn create_index(
     docs: Vec<HashMap<String, JSONValue>>,
-    config: &index::IndexConfig,
+    config: index::IndexConfig,
 ) -> Result<index::Index, failure::Error> {
-    let mut index = index::Index::new(&config);
+    let mut index = index::Index::new(config);
     let field_ids = index.field_ids().clone();
     let fields = field_ids.keys().cloned().collect();
 
@@ -113,14 +113,15 @@ fn inner_main<W: Write>(args: Cli, writer: &mut W) -> Result<(), failure::Error>
     let docs = get_path_documents(args.data_path)?;
 
     if args.benchmark > 0 {
-        for _ in 1..args.benchmark {
-            create_index(docs.clone(), &config)?.into_minisearch_json()?;
+        let data = (1..args.benchmark).into_iter().map(|_| (docs.clone(), config.clone())).collect::<Vec<_>>();
+        for (docs, config) in data.into_iter() {
+            create_index(docs, config)?.into_minisearch_json()?;
         }
     } else {
         writeln!(
             writer,
             "{}",
-            create_index(docs, &config)?.into_minisearch_json()?
+            create_index(docs, config)?.into_minisearch_json()?
         )?;
     }
     Ok(())
