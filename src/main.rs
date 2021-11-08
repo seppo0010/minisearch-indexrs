@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -9,6 +8,7 @@ use lazy_static::lazy_static;
 use log::{debug, warn};
 use regex::Regex;
 use serde_json::{Value as JSONValue};
+use structopt::StructOpt;
 
 mod serializer;
 mod index;
@@ -86,17 +86,24 @@ fn create_index(docs: Vec<HashMap<String, JSONValue>>, config: &index::IndexConf
     index
 }
 
+#[derive(StructOpt)]
+struct Cli {
+    #[structopt(parse(from_os_str))]
+    config_path: std::path::PathBuf,
+    #[structopt(parse(from_os_str))]
+    data_path: std::path::PathBuf,
+    #[structopt(default_value = "0")]
+    benchmark: usize,
+}
+
 fn main() {
     env_logger::init();
-    let args = env::args().collect::<Vec<_>>();
-    let config_path = &args[1];
-    let config = index::read_config_from_file(config_path);
-    let data_path = &args[2];
-    let docs = get_path_documents(data_path);
+    let args = Cli::from_args();
+    let config = index::read_config_from_file(args.config_path);
+    let docs = get_path_documents(args.data_path);
 
-    if args.len() > 3 {
-        let num = args[3].parse::<usize>().unwrap();
-        for _ in 1..num {
+    if args.benchmark > 0 {
+        for _ in 1..args.benchmark {
             create_index(docs.clone(), &config).into_minisearch_json();
         }
     } else {
