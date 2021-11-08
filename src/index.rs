@@ -128,3 +128,46 @@ fn process_term(term: &str) -> String {
     term.to_lowercase()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_insert_document() {
+        let mut index = Index::new(&IndexConfig{
+            fields: vec!["author".to_string(), "title".to_string()],
+            store_fields: vec!["author".to_string(), "title".to_string()],
+        });
+
+        index.insert_document("id1".into());
+        index.insert_document("id2".into());
+        index.insert_document("id3".into());
+        index.insert_document(4.into());
+
+        assert_eq!(index.next_id, 4);
+        assert_eq!(&index.document_ids, json!({
+            "0": "id1",
+            "1": "id2",
+            "2": "id3",
+            "3": 4,
+        }).as_object().unwrap());
+    }
+
+    #[test]
+    fn test_add_document_tokens() {
+        let mut index = Index::new(&IndexConfig{
+            fields: vec!["author".to_string(), "title".to_string()],
+            store_fields: vec!["author".to_string(), "title".to_string()],
+        });
+        index.add_document_tokens(vec![
+            ("foo".to_owned(), 0, 0),
+            ("bar".to_owned(), 1, 0),
+            ("foo".to_owned(), 0, 1),
+            ("baz".to_owned(), 1, 1),
+        ].into_iter());
+        assert_eq!(index.map.get("foo"), Some(&vec![(0, 0), (1, 0)]));
+        assert_eq!(index.map.get("bar"), Some(&vec![(0, 1)]));
+        assert_eq!(index.map.get("baz"), Some(&vec![(1, 1)]));
+    }
+}
