@@ -20,6 +20,8 @@ pub struct Index {
     /* {documentId: {fieldId: count} } */
     field_length: HashMap<usize, HashMap<usize, usize>>,
     map: PatriciaMap<Vec<(usize, usize)>>,
+    store_fields: Vec<String>,
+    stored_fields: JSONMap<String, JSONValue>,
     // TODO: custom tokenizer
     // TODO: custom term processing
 }
@@ -34,6 +36,8 @@ impl Index {
             .collect::<HashMap<String, usize>>();
         Index {
             field_ids,
+            store_fields: config.store_fields,
+            stored_fields: JSONMap::new(),
             document_ids: JSONMap::new(),
             field_num_tokens: HashMap::new(),
             field_length: HashMap::new(),
@@ -87,6 +91,22 @@ impl Index {
         self.field_ids.clone()
     }
 
+    pub fn add_document_fields<I>(&mut self, docs: I)
+    where
+        I: Iterator<Item = (usize, HashMap<String, JSONValue>)>,
+    {
+        for (small_id, mut doc) in docs.into_iter() {
+            let mut json_dic = JSONMap::new();
+            for f in self.store_fields.iter() {
+                if let Some(val) = doc.remove(f) {
+                    json_dic.insert(f.clone(), val.into());
+                }
+            }
+            self.stored_fields
+                .insert(small_id.to_string(), json_dic.into());
+        }
+    }
+
     pub fn into_minisearch_json(self) -> Result<String, failure::Error> {
         let mut h = JSONMap::new();
         h.insert("documentCount".to_string(), self.next_id.into());
@@ -106,8 +126,7 @@ impl Index {
             serializer::field_length_json(self.field_length).into(),
         );
         h.insert("index".to_string(), serializer::map_json(self.map)?.into());
-
-        // TODO: storedFields
+        h.insert("storedFields".to_string(), self.stored_fields.into());
 
         return Ok(serde_json::to_string(&JSONValue::Object(h)).unwrap());
     }
@@ -135,6 +154,7 @@ fn process_term(term: &str) -> String {
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::array::IntoIter;
 
     #[test]
     fn test_insert_document() {
@@ -182,5 +202,41 @@ mod tests {
         assert_eq!(index.map.get("foo"), Some(&vec![(0, 0), (1, 0)]));
         assert_eq!(index.map.get("bar"), Some(&vec![(0, 1)]));
         assert_eq!(index.map.get("baz"), Some(&vec![(1, 1)]));
+    }
+
+    #[test]
+    fn test_stored_fields() {
+        let mut index = Index::new(IndexConfig {
+            fields: vec!["author".to_string(), "title".to_string()],
+            store_fields: vec!["author".to_string(), "title".to_string()],
+        });
+        index.add_document_fields(
+            vec![
+                (
+                    1,
+                    HashMap::<_, _>::from_iter(IntoIter::new([(
+                        "author".to_owned(),
+                        JSONValue::String("J. K. Rowling".to_owned()),
+                    )])),
+                ),
+                (
+                    3,
+                    HashMap::<_, _>::from_iter(IntoIter::new([(
+                        "author".to_owned(),
+                        JSONValue::String("Stephen King".to_owned()),
+                    )])),
+                ),
+            ]
+            .into_iter(),
+        );
+        assert_eq!(
+            &index.stored_fields,
+            json!({
+                "1": {"author": "J. K. Rowling"},
+                "3": {"author": "Stephen King"},
+            })
+            .as_object()
+            .unwrap()
+        );
     }
 }

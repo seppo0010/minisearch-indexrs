@@ -41,19 +41,19 @@ fn get_document_tokens(
 }
 
 fn json_document_to_text_document(
-    json_document: HashMap<String, JSONValue>,
+    json_document: &HashMap<String, JSONValue>,
     fields: &HashSet<String>,
 ) -> HashMap<String, String> {
     json_document
-        .into_iter()
+        .iter()
         .filter_map(|(k, v)| {
-            if k != "id" && !fields.contains(&k) {
+            if k != "id" && !fields.contains(k) {
                 return None;
             }
             match v {
-                JSONValue::Null => Some((k, "".to_owned())),
-                JSONValue::Number(ref n) => Some((k, n.to_string())),
-                JSONValue::String(ref s) => Some((k, s.clone())),
+                JSONValue::Null => Some((k.clone(), "".to_owned())),
+                JSONValue::Number(ref n) => Some((k.clone(), n.to_string())),
+                JSONValue::String(ref s) => Some((k.clone(), s.clone())),
                 _ => {
                     warn!("unsupported type for field {}", k);
                     None
@@ -91,10 +91,11 @@ fn create_index(
         })
         .collect::<Result<Vec<_>, failure::Error>>()?;
 
-    index.add_document_tokens(docs.into_iter().flat_map(|(small_id, doc)| {
-        let doc = json_document_to_text_document(doc, &fields);
-        get_document_tokens(&field_ids, &doc, small_id)
+    index.add_document_tokens(docs.iter().flat_map(|(small_id, doc)| {
+        let doc = json_document_to_text_document(&doc, &fields);
+        get_document_tokens(&field_ids, &doc, *small_id)
     }))?;
+    index.add_document_fields(docs.into_iter());
     Ok(index)
 }
 
@@ -113,7 +114,10 @@ fn inner_main<W: Write>(args: Cli, writer: &mut W) -> Result<(), failure::Error>
     let docs = get_path_documents(args.data_path)?;
 
     if args.benchmark > 0 {
-        let data = (1..args.benchmark).into_iter().map(|_| (docs.clone(), config.clone())).collect::<Vec<_>>();
+        let data = (1..args.benchmark)
+            .into_iter()
+            .map(|_| (docs.clone(), config.clone()))
+            .collect::<Vec<_>>();
         for (docs, config) in data.into_iter() {
             create_index(docs, config)?.into_minisearch_json()?;
         }
@@ -241,7 +245,15 @@ mod tests {
                      }
                   }
                },
-               "nextId" : 2
+               "nextId" : 2,
+               "storedFields": {
+                   "0": {
+                       "a": "1"
+                   },
+                   "1": {
+                       "a": "a"
+                   }
+               }
             }),
         );
     }
