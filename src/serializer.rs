@@ -36,14 +36,14 @@ pub fn field_length_json(
     field_length
 }
 
-pub fn map_json(map: PatriciaMap<Vec<(usize, usize)>>) -> JSONMap<String, JSONValue> {
+pub fn map_json(map: PatriciaMap<Vec<(usize, usize)>>) -> Result<JSONMap<String, JSONValue>, failure::Error> {
     let node = Node::from(map);
 
     let mut index = JSONMap::new();
     index.insert("_prefix".to_string(), "".into());
     let mut stack = vec![("".to_owned(), JSONMap::new())];
     for (level, node) in node.into_iter() {
-        let label = std::str::from_utf8(node.label()).unwrap().to_owned();
+        let label = std::str::from_utf8(node.label())?.to_owned();
         if level == 0 {
             continue;
         }
@@ -95,7 +95,7 @@ pub fn map_json(map: PatriciaMap<Vec<(usize, usize)>>) -> JSONMap<String, JSONVa
         stack[level].1.insert(key, val.into());
     }
     index.insert("_tree".to_string(), stack.pop().unwrap().1.into());
-    index
+    Ok(index)
 }
 
 #[cfg(test)]
@@ -200,7 +200,7 @@ mod tests {
         map.insert("mockingbird", vec![(3, 0)]);
         map.insert("life", vec![(4, 0), (4, 0)]);
         map.insert("after", vec![(4, 0)]);
-        let json = map_json(map);
+        let json = map_json(map).unwrap();
         assert_json_eq!(
             json,
             json!(

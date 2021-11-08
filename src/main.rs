@@ -1,7 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
+use std::io;
 use std::io::BufReader;
+use std::io::Write;
 use std::path::Path;
+use std::process;
 
 use env_logger;
 use lazy_static::lazy_static;
@@ -12,6 +15,7 @@ use structopt::StructOpt;
 
 mod serializer;
 mod index;
+mod errors;
 
 fn tokenize<'a>(text: &'a str) -> impl Iterator<Item = &'a str> {
     lazy_static! {
@@ -59,14 +63,14 @@ fn json_document_to_text_document(
         .collect()
 }
 
-fn get_path_documents<P: AsRef<Path>>(path: P) -> Vec<HashMap<String, JSONValue>> {
+fn get_path_documents<P: AsRef<Path>>(path: P) -> Result<Vec<HashMap<String, JSONValue>>, failure::Error> {
     debug!("reading documents from {}", path.as_ref().to_string_lossy());
-    let file = File::open(path).unwrap();
+    let file = File::open(path)?;
     let reader = BufReader::new(file);
-    serde_json::from_reader(reader).unwrap()
+    Ok(serde_json::from_reader(reader)?)
 }
 
-fn create_index(docs: Vec<HashMap<String, JSONValue>>, config: &index::IndexConfig) -> index::Index {
+fn create_index(docs: Vec<HashMap<String, JSONValue>>, config: &index::IndexConfig) -> Result<index::Index, failure::Error> {
     let mut index = index::Index::new(&config);
     let field_ids = index.field_ids().clone();
     let fields = field_ids.keys().cloned().collect();
@@ -74,16 +78,16 @@ fn create_index(docs: Vec<HashMap<String, JSONValue>>, config: &index::IndexConf
     let docs = docs
         .into_iter()
         .map(|mut d| {
-            let small_id = index.insert_document(d.remove("id").unwrap());
-            (small_id, d)
+            let small_id = index.insert_document(d.remove("id").ok_or(errors::MinisearchIndexrsError::MissingId)?);
+            Ok((small_id, d))
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, failure::Error>>()?;
 
     index.add_document_tokens(docs.into_iter().flat_map(|(small_id, doc)| {
         let doc = json_document_to_text_document(doc, &fields);
         get_document_tokens(&field_ids, &doc, small_id)
-    }));
-    index
+    }))?;
+    Ok(index)
 }
 
 #[derive(StructOpt)]
@@ -96,17 +100,28 @@ struct Cli {
     benchmark: usize,
 }
 
-fn main() {
+fn inner_main() -> Result<(), failure::Error>{
     env_logger::init();
     let args = Cli::from_args();
-    let config = index::read_config_from_file(args.config_path);
-    let docs = get_path_documents(args.data_path);
+    let config = index::read_config_from_file(args.config_path)?;
+    let docs = get_path_documents(args.data_path)?;
 
     if args.benchmark > 0 {
         for _ in 1..args.benchmark {
-            create_index(docs.clone(), &config).into_minisearch_json();
+            create_index(docs.clone(), &config)?.into_minisearch_json()?;
         }
     } else {
-        println!("{}", create_index(docs, &config).into_minisearch_json());
+        println!("{}", create_index(docs, &config)?.into_minisearch_json()?);
     }
+    Ok(())
+}
+
+fn main() {
+    process::exit(match inner_main() {
+        Ok(_) => 0,
+        Err(ref e) => {
+            writeln!(io::stderr(), "{}", e).unwrap();
+            1
+        }
+    });
 }

@@ -3,10 +3,12 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
+use failure::Error;
 use log::{debug};
 use patricia_tree::PatriciaMap;
 use serde::Deserialize;
 use serde_json::{Map as JSONMap, Value as JSONValue};
+
 use crate::serializer;
 
 pub struct Index {
@@ -47,7 +49,7 @@ impl Index {
         return small_id;
     }
 
-    pub fn add_document_tokens<I>(&mut self, document_tokens: I)
+    pub fn add_document_tokens<I>(&mut self, document_tokens: I) -> Result<(), failure::Error>
     where
         I: Iterator<Item = (String, usize, usize)>,
     {
@@ -67,6 +69,7 @@ impl Index {
             self.field_num_tokens.insert(field_id, num_tokens);
             self.add_token(small_id, &process_term(&token), field_id);
         }
+        Ok(())
     }
 
     pub fn add_token(&mut self, document_id: usize, token: &str, field_id: usize) {
@@ -84,7 +87,7 @@ impl Index {
         self.field_ids.clone()
     }
 
-    pub fn into_minisearch_json(self) -> String {
+    pub fn into_minisearch_json(self) -> Result<String, failure::Error> {
         let mut h = JSONMap::new();
         h.insert("documentCount".to_string(), self.next_id.into());
         h.insert("nextId".to_string(), self.next_id.into());
@@ -102,11 +105,11 @@ impl Index {
             "fieldLength".to_string(),
             serializer::field_length_json(self.field_length).into(),
         );
-        h.insert("index".to_string(), serializer::map_json(self.map).into());
+        h.insert("index".to_string(), serializer::map_json(self.map)?.into());
 
         // TODO: storedFields
 
-        return serde_json::to_string(&JSONValue::Object(h)).unwrap();
+        return Ok(serde_json::to_string(&JSONValue::Object(h)).unwrap());
     }
 }
 
@@ -117,11 +120,11 @@ pub struct IndexConfig {
     store_fields: Vec<String>,
 }
 
-pub fn read_config_from_file<P: AsRef<Path>>(path: P) -> IndexConfig {
+pub fn read_config_from_file<P: AsRef<Path>>(path: P) -> Result<IndexConfig, Error> {
     debug!("reading config from {}", path.as_ref().to_string_lossy());
-    let file = File::open(path).unwrap();
+    let file = File::open(path)?;
     let reader = BufReader::new(file);
-    serde_json::from_reader(reader).unwrap()
+    Ok(serde_json::from_reader(reader)?)
 }
 
 fn process_term(term: &str) -> String {
@@ -165,7 +168,7 @@ mod tests {
             ("bar".to_owned(), 1, 0),
             ("foo".to_owned(), 0, 1),
             ("baz".to_owned(), 1, 1),
-        ].into_iter());
+        ].into_iter()).unwrap();
         assert_eq!(index.map.get("foo"), Some(&vec![(0, 0), (1, 0)]));
         assert_eq!(index.map.get("bar"), Some(&vec![(0, 1)]));
         assert_eq!(index.map.get("baz"), Some(&vec![(1, 1)]));
