@@ -10,12 +10,12 @@ use env_logger;
 use lazy_static::lazy_static;
 use log::{debug, warn};
 use regex::Regex;
-use serde_json::{Value as JSONValue};
+use serde_json::Value as JSONValue;
 use structopt::StructOpt;
 
-mod serializer;
-mod index;
 mod errors;
+mod index;
+mod serializer;
 
 fn tokenize<'a>(text: &'a str) -> impl Iterator<Item = &'a str> {
     lazy_static! {
@@ -63,14 +63,19 @@ fn json_document_to_text_document(
         .collect()
 }
 
-fn get_path_documents<P: AsRef<Path>>(path: P) -> Result<Vec<HashMap<String, JSONValue>>, failure::Error> {
+fn get_path_documents<P: AsRef<Path>>(
+    path: P,
+) -> Result<Vec<HashMap<String, JSONValue>>, failure::Error> {
     debug!("reading documents from {}", path.as_ref().to_string_lossy());
     let file = File::open(path)?;
     let reader = BufReader::new(file);
     Ok(serde_json::from_reader(reader)?)
 }
 
-fn create_index(docs: Vec<HashMap<String, JSONValue>>, config: &index::IndexConfig) -> Result<index::Index, failure::Error> {
+fn create_index(
+    docs: Vec<HashMap<String, JSONValue>>,
+    config: &index::IndexConfig,
+) -> Result<index::Index, failure::Error> {
     let mut index = index::Index::new(&config);
     let field_ids = index.field_ids().clone();
     let fields = field_ids.keys().cloned().collect();
@@ -78,7 +83,10 @@ fn create_index(docs: Vec<HashMap<String, JSONValue>>, config: &index::IndexConf
     let docs = docs
         .into_iter()
         .map(|mut d| {
-            let small_id = index.insert_document(d.remove("id").ok_or(errors::MinisearchIndexrsError::MissingId)?);
+            let small_id = index.insert_document(
+                d.remove("id")
+                    .ok_or(errors::MinisearchIndexrsError::MissingId)?,
+            );
             Ok((small_id, d))
         })
         .collect::<Result<Vec<_>, failure::Error>>()?;
@@ -100,9 +108,7 @@ struct Cli {
     benchmark: usize,
 }
 
-fn inner_main() -> Result<(), failure::Error>{
-    env_logger::init();
-    let args = Cli::from_args();
+fn inner_main<W: Write>(args: Cli, writer: &mut W) -> Result<(), failure::Error> {
     let config = index::read_config_from_file(args.config_path)?;
     let docs = get_path_documents(args.data_path)?;
 
@@ -111,17 +117,131 @@ fn inner_main() -> Result<(), failure::Error>{
             create_index(docs.clone(), &config)?.into_minisearch_json()?;
         }
     } else {
-        println!("{}", create_index(docs, &config)?.into_minisearch_json()?);
+        writeln!(
+            writer,
+            "{}",
+            create_index(docs, &config)?.into_minisearch_json()?
+        )?;
     }
     Ok(())
 }
 
 fn main() {
-    process::exit(match inner_main() {
+    env_logger::init();
+    let args = Cli::from_args();
+    process::exit(match inner_main(args, &mut io::stdout()) {
         Ok(_) => 0,
         Err(ref e) => {
             writeln!(io::stderr(), "{}", e).unwrap();
             1
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assert_json_diff::assert_json_eq;
+    use serde_json::json;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_integration() {
+        let mut output = Vec::<u8>::new();
+        let mut config = NamedTempFile::new().unwrap();
+        config
+            .write_all(r#"{"fields":["a","b"],"store_fields":["a"]}"#.as_bytes())
+            .unwrap();
+
+        let mut data = NamedTempFile::new().unwrap();
+        data.write_all(
+            r#"[{"id":"bar","a":"1","b":"123","c":"124"},{"id":"foo","a":"a","b":"b","c":"cd"}]"#
+                .as_bytes(),
+        )
+        .unwrap();
+        inner_main(
+            Cli {
+                config_path: config.path().to_path_buf(),
+                data_path: data.path().to_path_buf(),
+                benchmark: 0,
+            },
+            &mut output,
+        )
+        .unwrap();
+        let json: JSONValue = serde_json::from_str(std::str::from_utf8(&output).unwrap()).unwrap();
+        assert_json_eq!(
+            json,
+            json!({
+               "averageFieldLength" : {
+                  "0" : 1.0,
+                  "1" : 1.0
+               },
+               "documentCount" : 2,
+               "documentIds" : {
+                  "0" : "bar",
+                  "1" : "foo"
+               },
+               "fieldIds" : {
+                  "a" : 0,
+                  "b" : 1
+               },
+               "fieldLength" : {
+                  "0" : {
+                     "0" : 1,
+                     "1" : 1
+                  },
+                  "1" : {
+                     "0" : 1,
+                     "1" : 1
+                  }
+               },
+               "index" : {
+                  "_prefix" : "",
+                  "_tree" : {
+                     "1" : {
+                        "" : {
+                           "0" : {
+                              "df" : 1,
+                              "ds" : {
+                                 "0" : 1
+                              }
+                           }
+                        },
+                        "23" : {
+                           "" : {
+                              "1" : {
+                                 "df" : 1,
+                                 "ds" : {
+                                    "0" : 1
+                                 }
+                              }
+                           }
+                        }
+                     },
+                     "a" : {
+                        "" : {
+                           "0" : {
+                              "df" : 1,
+                              "ds" : {
+                                 "1" : 1
+                              }
+                           }
+                        }
+                     },
+                     "b" : {
+                        "" : {
+                           "1" : {
+                              "df" : 1,
+                              "ds" : {
+                                 "1" : 1
+                              }
+                           }
+                        }
+                     }
+                  }
+               },
+               "nextId" : 2
+            }),
+        );
+    }
 }

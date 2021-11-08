@@ -36,7 +36,9 @@ pub fn field_length_json(
     field_length
 }
 
-pub fn map_json(map: PatriciaMap<Vec<(usize, usize)>>) -> Result<JSONMap<String, JSONValue>, failure::Error> {
+pub fn map_json(
+    map: PatriciaMap<Vec<(usize, usize)>>,
+) -> Result<JSONMap<String, JSONValue>, failure::Error> {
     let node = Node::from(map);
 
     let mut index = JSONMap::new();
@@ -101,9 +103,9 @@ pub fn map_json(map: PatriciaMap<Vec<(usize, usize)>>) -> Result<JSONMap<String,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::array::IntoIter;
-    use serde_test::{assert_tokens, Token};
     use assert_json_diff::assert_json_eq;
+    use serde_test::{assert_tokens, Token};
+    use std::array::IntoIter;
 
     #[test]
     fn test_serialize_fields() {
@@ -149,29 +151,30 @@ mod tests {
 
     #[test]
     fn test_field_length_json() {
-        let field_length_src = HashMap::<_, _>::from_iter(
-            IntoIter::new([
-                (1, HashMap::<_, _>::from_iter(IntoIter::new([(1, 4)]))),
-                (3, HashMap::<_, _>::from_iter(IntoIter::new([(1, 5), (2, 6)]))),
-            ])
-        ); 
+        let field_length_src = HashMap::<_, _>::from_iter(IntoIter::new([
+            (1, HashMap::<_, _>::from_iter(IntoIter::new([(1, 4)]))),
+            (
+                3,
+                HashMap::<_, _>::from_iter(IntoIter::new([(1, 5), (2, 6)])),
+            ),
+        ]));
         let json = field_length_json(field_length_src);
         assert_tokens(
             &json,
             &[
                 Token::Map { len: Some(2) },
-                    Token::Str("1"),
-                    Token::Map { len: Some(1) },
-                        Token::Str("1"),
-                        Token::U64(4),
-                    Token::MapEnd,
-                    Token::Str("3"),
-                    Token::Map { len: Some(2) },
-                        Token::Str("1"),
-                        Token::U64(5),
-                        Token::Str("2"),
-                        Token::U64(6),
-                    Token::MapEnd,
+                Token::Str("1"),
+                Token::Map { len: Some(1) },
+                Token::Str("1"),
+                Token::U64(4),
+                Token::MapEnd,
+                Token::Str("3"),
+                Token::Map { len: Some(2) },
+                Token::Str("1"),
+                Token::U64(5),
+                Token::Str("2"),
+                Token::U64(6),
+                Token::MapEnd,
                 Token::MapEnd,
             ],
         );

@@ -1,10 +1,10 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
 use failure::Error;
-use log::{debug};
+use log::debug;
 use patricia_tree::PatriciaMap;
 use serde::Deserialize;
 use serde_json::{Map as JSONMap, Value as JSONValue};
@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_insert_document() {
-        let mut index = Index::new(&IndexConfig{
+        let mut index = Index::new(&IndexConfig {
             fields: vec!["author".to_string(), "title".to_string()],
             store_fields: vec!["author".to_string(), "title".to_string()],
         });
@@ -149,26 +149,36 @@ mod tests {
         index.insert_document(4.into());
 
         assert_eq!(index.next_id, 4);
-        assert_eq!(&index.document_ids, json!({
-            "0": "id1",
-            "1": "id2",
-            "2": "id3",
-            "3": 4,
-        }).as_object().unwrap());
+        assert_eq!(
+            &index.document_ids,
+            json!({
+                "0": "id1",
+                "1": "id2",
+                "2": "id3",
+                "3": 4,
+            })
+            .as_object()
+            .unwrap()
+        );
     }
 
     #[test]
     fn test_add_document_tokens() {
-        let mut index = Index::new(&IndexConfig{
+        let mut index = Index::new(&IndexConfig {
             fields: vec!["author".to_string(), "title".to_string()],
             store_fields: vec!["author".to_string(), "title".to_string()],
         });
-        index.add_document_tokens(vec![
-            ("foo".to_owned(), 0, 0),
-            ("bar".to_owned(), 1, 0),
-            ("foo".to_owned(), 0, 1),
-            ("baz".to_owned(), 1, 1),
-        ].into_iter()).unwrap();
+        index
+            .add_document_tokens(
+                vec![
+                    ("foo".to_owned(), 0, 0),
+                    ("bar".to_owned(), 1, 0),
+                    ("foo".to_owned(), 0, 1),
+                    ("baz".to_owned(), 1, 1),
+                ]
+                .into_iter(),
+            )
+            .unwrap();
         assert_eq!(index.map.get("foo"), Some(&vec![(0, 0), (1, 0)]));
         assert_eq!(index.map.get("bar"), Some(&vec![(0, 1)]));
         assert_eq!(index.map.get("baz"), Some(&vec![(1, 1)]));
