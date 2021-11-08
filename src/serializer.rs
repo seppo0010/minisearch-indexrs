@@ -103,6 +103,7 @@ mod tests {
     use super::*;
     use std::array::IntoIter;
     use serde_test::{assert_tokens, Token};
+    use assert_json_diff::assert_json_eq;
 
     #[test]
     fn test_serialize_fields() {
@@ -174,5 +175,253 @@ mod tests {
                 Token::MapEnd,
             ],
         );
+    }
+
+    #[test]
+    fn test_map_json() {
+        let mut map = PatriciaMap::new();
+        map.insert("harry", vec![(0, 0), (1, 0)]);
+        map.insert("potter", vec![(0, 0), (1, 0)]);
+        map.insert("and", vec![(0, 0), (1, 0)]);
+        map.insert("the", vec![(0, 0), (1, 0)]);
+        map.insert("philosopher", vec![(0, 0)]);
+        map.insert("s", vec![(0, 0)]);
+        map.insert("stone", vec![(0, 0)]);
+        map.insert("chamber", vec![(1, 0)]);
+        map.insert("of", vec![(1, 0), (2, 0)]);
+        map.insert("secrets", vec![(1, 0)]);
+        map.insert("homo", vec![(2, 0)]);
+        map.insert("deus", vec![(2, 0)]);
+        map.insert("a", vec![(2, 0), (3, 0)]);
+        map.insert("history", vec![(2, 0)]);
+        map.insert("tomorrow", vec![(2, 0)]);
+        map.insert("to", vec![(3, 0)]);
+        map.insert("kill", vec![(3, 0)]);
+        map.insert("mockingbird", vec![(3, 0)]);
+        map.insert("life", vec![(4, 0), (4, 0)]);
+        map.insert("after", vec![(4, 0)]);
+        let json = map_json(map);
+        assert_json_eq!(
+            json,
+            json!(
+                {
+                  "_prefix" : "",
+                  "_tree" : {
+                     "a" : {
+                        "" : {
+                           "0" : {
+                              "df" : 2,
+                              "ds" : {
+                                 "2" : 1,
+                                 "3" : 1
+                              }
+                           }
+                        },
+                        "fter" : {
+                           "" : {
+                              "0" : {
+                                 "df" : 1,
+                                 "ds" : {
+                                    "4" : 1
+                                 }
+                              }
+                           }
+                        },
+                        "nd" : {
+                           "" : {
+                              "0" : {
+                                 "df" : 2,
+                                 "ds" : {
+                                    "0" : 1,
+                                    "1" : 1
+                                 }
+                              }
+                           }
+                        }
+                     },
+                     "chamber" : {
+                        "" : {
+                           "0" : {
+                              "df" : 1,
+                              "ds" : {
+                                 "1" : 1
+                              }
+                           }
+                        }
+                     },
+                     "deus" : {
+                        "" : {
+                           "0" : {
+                              "df" : 1,
+                              "ds" : {
+                                 "2" : 1
+                              }
+                           }
+                        }
+                     },
+                     "h" : {
+                        "arry" : {
+                           "" : {
+                              "0" : {
+                                 "df" : 2,
+                                 "ds" : {
+                                    "0" : 1,
+                                    "1" : 1
+                                 }
+                              }
+                           }
+                        },
+                        "istory" : {
+                           "" : {
+                              "0" : {
+                                 "df" : 1,
+                                 "ds" : {
+                                    "2" : 1
+                                 }
+                              }
+                           }
+                        },
+                        "omo" : {
+                           "" : {
+                              "0" : {
+                                 "df" : 1,
+                                 "ds" : {
+                                    "2" : 1
+                                 }
+                              }
+                           }
+                        }
+                     },
+                     "kill" : {
+                        "" : {
+                           "0" : {
+                              "df" : 1,
+                              "ds" : {
+                                 "3" : 1
+                              }
+                           }
+                        }
+                     },
+                     "life" : {
+                        "" : {
+                           "0" : {
+                              "df" : 1,
+                              "ds" : {
+                                 "4" : 2
+                              }
+                           }
+                        }
+                     },
+                     "mockingbird" : {
+                        "" : {
+                           "0" : {
+                              "df" : 1,
+                              "ds" : {
+                                 "3" : 1
+                              }
+                           }
+                        }
+                     },
+                     "of" : {
+                        "" : {
+                           "0" : {
+                              "df" : 2,
+                              "ds" : {
+                                 "1" : 1,
+                                 "2" : 1
+                              }
+                           }
+                        }
+                     },
+                     "p" : {
+                        "hilosopher" : {
+                           "" : {
+                              "0" : {
+                                 "df" : 1,
+                                 "ds" : {
+                                    "0" : 1
+                                 }
+                              }
+                           }
+                        },
+                        "otter" : {
+                           "" : {
+                              "0" : {
+                                 "df" : 2,
+                                 "ds" : {
+                                    "0" : 1,
+                                    "1" : 1
+                                 }
+                              }
+                           }
+                        }
+                     },
+                     "s" : {
+                        "" : {
+                           "0" : {
+                              "df" : 1,
+                              "ds" : {
+                                 "0" : 1
+                              }
+                           }
+                        },
+                        "ecrets" : {
+                           "" : {
+                              "0" : {
+                                 "df" : 1,
+                                 "ds" : {
+                                    "1" : 1
+                                 }
+                              }
+                           }
+                        },
+                        "tone" : {
+                           "" : {
+                              "0" : {
+                                 "df" : 1,
+                                 "ds" : {
+                                    "0" : 1
+                                 }
+                              }
+                           }
+                        }
+                     },
+                     "t" : {
+                        "he" : {
+                           "" : {
+                              "0" : {
+                                 "df" : 2,
+                                 "ds" : {
+                                    "0" : 1,
+                                    "1" : 1
+                                 }
+                              }
+                           }
+                        },
+                        "o" : {
+                           "" : {
+                              "0" : {
+                                 "df" : 1,
+                                 "ds" : {
+                                    "3" : 1
+                                 }
+                              }
+                           },
+                           "morrow" : {
+                              "" : {
+                                 "0" : {
+                                    "df" : 1,
+                                    "ds" : {
+                                       "2" : 1
+                                    }
+                                 }
+                              }
+                           }
+                        }
+                     }
+                  }
+               }
+            ),
+        )
     }
 }
