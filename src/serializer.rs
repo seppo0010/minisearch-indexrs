@@ -101,6 +101,7 @@ pub fn map_json(map: PatriciaMap<Vec<(usize, usize)>>) -> JSONMap<String, JSONVa
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::array::IntoIter;
     use serde_test::{assert_tokens, Token};
 
     #[test]
@@ -140,6 +141,36 @@ mod tests {
                 Token::F64(0.18),
                 Token::Str("101"),
                 Token::F64(1.23),
+                Token::MapEnd,
+            ],
+        );
+    }
+
+    #[test]
+    fn test_field_length_json() {
+        let field_length_src = HashMap::<_, _>::from_iter(
+            IntoIter::new([
+                (1, HashMap::<_, _>::from_iter(IntoIter::new([(1, 4)]))),
+                (3, HashMap::<_, _>::from_iter(IntoIter::new([(1, 5), (2, 6)]))),
+            ])
+        ); 
+        let json = field_length_json(field_length_src);
+        assert_tokens(
+            &json,
+            &[
+                Token::Map { len: Some(2) },
+                    Token::Str("1"),
+                    Token::Map { len: Some(1) },
+                        Token::Str("1"),
+                        Token::U64(4),
+                    Token::MapEnd,
+                    Token::Str("3"),
+                    Token::Map { len: Some(2) },
+                        Token::Str("1"),
+                        Token::U64(5),
+                        Token::Str("2"),
+                        Token::U64(6),
+                    Token::MapEnd,
                 Token::MapEnd,
             ],
         );
