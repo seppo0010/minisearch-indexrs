@@ -77,6 +77,7 @@ fn create_index(
     config: index::IndexConfig,
     progress: Option<&ProgressBar>,
 ) -> Result<index::Index, failure::Error> {
+    debug!("creating index");
     let mut index = index::Index::new(config);
     let field_ids = index.field_ids();
     let fields = field_ids.keys().cloned().collect();
@@ -100,6 +101,7 @@ fn create_index(
         get_document_tokens(&field_ids, &doc, *small_id)
     }))?;
     index.add_document_fields(docs.into_iter());
+    debug!("index ready");
     Ok(index)
 }
 
@@ -116,6 +118,7 @@ struct Cli {
 fn inner_main<W: Write>(args: Cli, writer: &mut W) -> Result<(), failure::Error> {
     let config = index::read_config_from_file(args.config_path)?;
     let docs = get_path_documents(args.data_path)?;
+    debug!("finished reading documents");
 
     if args.benchmark > 0 {
         for (docs, config) in (1..args.benchmark)

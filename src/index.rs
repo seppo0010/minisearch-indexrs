@@ -108,6 +108,7 @@ impl Index {
     }
 
     pub fn into_minisearch_json(self) -> Result<String, failure::Error> {
+        debug!("creating json");
         let mut h = JSONMap::new();
         h.insert("documentCount".to_string(), self.next_id.into());
         h.insert("nextId".to_string(), self.next_id.into());
@@ -125,7 +126,9 @@ impl Index {
             "fieldLength".to_string(),
             serializer::field_length_json(self.field_length).into(),
         );
+        debug!("serializing index");
         h.insert("index".to_string(), serializer::map_json(self.map)?.into());
+        debug!("finished serializing index");
         h.insert("storedFields".to_string(), self.stored_fields.into());
 
         Ok(serde_json::to_string(&JSONValue::Object(h)).unwrap())
