@@ -8,7 +8,7 @@ pub fn field_ids_json(field_ids_src: HashMap<String, usize>) -> JSONMap<String, 
     for (k, v) in field_ids_src.into_iter() {
         field_ids.insert(k.to_string(), v.into());
     }
-    return field_ids;
+    field_ids
 }
 
 pub fn average_field_length_json(
@@ -49,7 +49,7 @@ pub fn map_json(
         if level == 0 {
             continue;
         }
-        while level + 1 <= stack.len() {
+        while level < stack.len() {
             let level = stack.len() - 2;
             let (key, val) = stack.pop().unwrap();
             stack[level].1.insert(key, val.into());
@@ -83,8 +83,7 @@ pub fn map_json(
                                 "df": df,
                                 "ds": ds,
                             }
-                        })
-                        .into(),
+                        }),
                     );
                 }
             }

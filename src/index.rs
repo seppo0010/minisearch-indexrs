@@ -32,7 +32,7 @@ impl Index {
             .fields
             .into_iter()
             .enumerate()
-            .map(|(i, v)| (v.to_owned(), i))
+            .map(|(i, v)| (v, i))
             .collect::<HashMap<String, usize>>();
         Index {
             field_ids,
@@ -50,7 +50,7 @@ impl Index {
         let small_id = self.next_id;
         self.document_ids.insert(small_id.to_string(), id);
         self.next_id += 1;
-        return small_id;
+        small_id
     }
 
     pub fn add_document_tokens<I>(&mut self, document_tokens: I) -> Result<(), failure::Error>
@@ -99,7 +99,7 @@ impl Index {
             let mut json_dic = JSONMap::new();
             for f in self.store_fields.iter() {
                 if let Some(val) = doc.remove(f) {
-                    json_dic.insert(f.clone(), val.into());
+                    json_dic.insert(f.clone(), val);
                 }
             }
             self.stored_fields
@@ -128,7 +128,7 @@ impl Index {
         h.insert("index".to_string(), serializer::map_json(self.map)?.into());
         h.insert("storedFields".to_string(), self.stored_fields.into());
 
-        return Ok(serde_json::to_string(&JSONValue::Object(h)).unwrap());
+        Ok(serde_json::to_string(&JSONValue::Object(h)).unwrap())
     }
 }
 
