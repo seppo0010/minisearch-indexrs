@@ -6,6 +6,7 @@ use std::io::Write;
 use std::path::Path;
 use std::process;
 
+use indicatif::ProgressBar;
 use lazy_static::lazy_static;
 use log::{debug, warn};
 use regex::Regex;
@@ -74,6 +75,7 @@ fn get_path_documents<P: AsRef<Path>>(
 fn create_index(
     docs: Vec<HashMap<String, JSONValue>>,
     config: index::IndexConfig,
+    progress: Option<&ProgressBar>,
 ) -> Result<index::Index, failure::Error> {
     let mut index = index::Index::new(config);
     let field_ids = index.field_ids();
@@ -91,6 +93,9 @@ fn create_index(
         .collect::<Result<Vec<_>, failure::Error>>()?;
 
     index.add_document_tokens(docs.iter().flat_map(|(small_id, doc)| {
+        if let Some(p) = progress {
+            p.inc(1);
+        }
         let doc = json_document_to_text_document(doc, &fields);
         get_document_tokens(&field_ids, &doc, *small_id)
     }))?;
@@ -117,13 +122,14 @@ fn inner_main<W: Write>(args: Cli, writer: &mut W) -> Result<(), failure::Error>
             .into_iter()
             .map(|_| (docs.clone(), config.clone()))
         {
-            create_index(docs, config)?.into_minisearch_json()?;
+            create_index(docs, config, None)?.into_minisearch_json()?;
         }
     } else {
+        let progress = ProgressBar::new(docs.len().try_into().unwrap());
         writeln!(
             writer,
             "{}",
-            create_index(docs, config)?.into_minisearch_json()?
+            create_index(docs, config, Some(&progress))?.into_minisearch_json()?
         )?;
     }
     Ok(())
