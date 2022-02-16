@@ -1,5 +1,7 @@
 # Minisearch Indexrs
 
+**This project is deprecated and incompatible with minisearch**
+
 Creates a serialized index for
 [Minisearch](https://lucaong.github.io/minisearch/). In most cases, with large
 a corpus, it should be faster than using minisearch itself to build the index.
